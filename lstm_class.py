@@ -61,3 +61,47 @@ class Lstm():
             Summary: Model Summary
         """
         return self.model.summary()
+
+    def fit(self, X_train, y_train, X_val=None, y_val=None):
+        """ Fit the Model
+
+        Args:
+            X_train (Numpy Array): Training Features
+            y_train (Numpy Array): Training Target
+            X_val (Numpy Array, optional): Validation Features. Defaults to None.
+            y_val (Numpy Array, optional): Validation Target. Defaults to None.
+        """
+        if X_val is not None and y_val is not None:
+            self.history = self.model.fit(X_train,
+                                          y_train,
+                                          epochs=self.epochs,
+                                          batch_size=self.batch_size,
+                                          validation_data=(X_val, y_val)
+                                          )
+        else:
+            self.history = self.model.fit(X_train,
+                                          y_train,
+                                          epochs=self.epochs,
+                                          batch_size=self.batch_size
+                                          )
+
+    def plot_performance(self):
+        """ Plot the Training vs Validation Performance
+
+        Returns:
+            Figure: Loss v/s Epochs
+        """
+        if self.history is None:
+            print("No Training History found, please train the Model first.")
+            return None
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.history['loss'], label="Training Loss")
+        if 'val_loss' in self.history.history:
+            plt.plot(self.history.history['val_loss'], label="Validation Loss")
+        plt.title("Training and Validation Loss")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig("model_performance.png", dpi=300)
+        plt.show()
