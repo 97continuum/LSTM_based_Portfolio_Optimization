@@ -127,62 +127,70 @@ class Lstm():
         best_score = float('inf')
         best_params = None
 
-        for lstm_units in param_grid['lstm_units']:
-            for dense_units1 in param_grid['dense_units1']:
-                for dense_units2 in param_grid['dense_units2']:
-                    for optimizer_name in param_grid['optimizer']:
+        for batch_size in param_grid['batch_size']:
+            for lstm_units in param_grid['lstm_units']:
+                for dense_units1 in param_grid['dense_units1']:
+                    for dense_units2 in param_grid['dense_units2']:
+                        for optimizer_name in param_grid['optimizer']:
 
-                        current_params = {
-                            'lstm_units': lstm_units,
-                            'dense_units1': dense_units1,
-                            'dense_units2': dense_units2,
-                            'optimizer': optimizer_name
-                        }
+                            current_params = {
+                                'lstm_units': lstm_units,
+                                'dense_units1': dense_units1,
+                                'dense_units2': dense_units2,
+                                'batch_size': batch_size,
+                                'optimizer': optimizer_name
+                            }
 
-                        print(f"Current Parameters: {current_params}")
+                            print(f"Current Parameters: {current_params}")
 
-                        val_scores = []
+                            val_scores = []
 
-                        for train_index, val_index in tscv.split(X):
-                            X_train, X_val = X[train_index], X[val_index]
-                            y_train, y_val = y[train_index], y[val_index]
+                            for train_index, val_index in tscv.split(X):
+                                X_train, X_val = X[train_index], X[val_index]
+                                y_train, y_val = y[train_index], y[val_index]
 
-                            # Debug: Print shapes of the splits
-                            print(f"Train shapes: X_train: {X_train.shape}, y_train: {y_train.shape}")
-                            print(f"Val shapes: X_val: {X_val.shape}, y_val: {y_val.shape}")
+                                # Debug: Print shapes of the splits
+                                #print(f"Train shapes: X_train: {X_train.shape}, y_train: {y_train.shape}")
+                                #print(f"Val shapes: X_val: {X_val.shape}, y_val: {y_val.shape}")
 
-                            # Check if training or validation sets are empty
-                            if X_train.size == 0 or X_val.size == 0 or y_train.size == 0 or y_val.size == 0:
-                                print("Skipping due to empty training or validation set")
-                                continue
+                                # Check if training or validation sets are empty
+                                if X_train.size == 0 or X_val.size == 0 or y_train.size == 0 or y_val.size == 0:
+                                    print("Skipping due to empty training or validation set")
+                                    continue
 
-                            # Build and compile model with current parameters
-                            self.model = self.build_model(lstm_units, dense_units1, dense_units2, optimizer_name)
-                            history = self.model.fit(X_train, y_train, epochs=epochs, batch_size=self.batch_size, validation_data=(X_val, y_val), verbose=0)
-                            val_mse = history.history['val_mse'][-1]
-                            val_scores.append(val_mse)
+                                # Build and compile model with current parameters
+                                self.model = self.build_model(lstm_units, dense_units1, dense_units2, optimizer_name)
+                                history = self.model.fit(X_train,
+                                                         y_train,
+                                                         epochs=epochs,
+                                                         batch_size=batch_size,
+                                                         validation_data=(X_val, y_val),
+                                                         verbose=0)
+                                val_mse = history.history['val_mse'][-1]
+                                val_scores.append(val_mse)
 
-                        avg_val_mse = np.mean(val_scores)
+                            avg_val_mse = np.mean(val_scores)
 
-                        # Add the parameters and their average validation MSE to the results list
-                        results.append({
-                            'lstm_units': lstm_units,
-                            'dense_units1': dense_units1,
-                            'dense_units2': dense_units2,
-                            'optimizer': optimizer_name,
-                            'avg_val_mse': avg_val_mse
-                        })
+                            # Add the parameters and their average validation MSE to the results list
+                            results.append({
+                                'lstm_units': lstm_units,
+                                'dense_units1': dense_units1,
+                                'dense_units2': dense_units2,
+                                'batch_size': batch_size,
+                                'optimizer': optimizer_name,
+                                'avg_val_mse': avg_val_mse
+                            })
 
-                        if avg_val_mse < best_score:
-                            best_score = avg_val_mse
-                            best_params = current_params
+                            if avg_val_mse < best_score:
+                                best_score = avg_val_mse
+                                best_params = current_params
 
-                        print(f"Params: {current_params}, Average Validation MSE: {avg_val_mse:.4f}")
+                            print(f"Params: {current_params}, Average Validation MSE: {avg_val_mse:.4f}")
 
-                        # Export results to a CSV file
-                        results_df = pd.DataFrame(results)
-                        results_df.to_csv(f"../results/{csv_path}", index=False)
-                        print(f"Results saved to {csv_path}")
+                            # Export results to a CSV file
+                            results_df = pd.DataFrame(results)
+                            results_df.to_csv(f"../results/{csv_path}", index=False)
+                            print(f"Results saved to {csv_path}")
 
         print(f"Best Params: {best_params}, Best Validation MSE: {best_score:.4f}")
         return best_params
