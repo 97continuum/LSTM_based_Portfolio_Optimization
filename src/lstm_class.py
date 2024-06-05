@@ -2,6 +2,8 @@
     Create Class for LSTM    
 """
 
+import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import LSTM, Dense, Input # type: ignore
@@ -35,20 +37,16 @@ class Lstm():
         self.history=None
         #self.model=None
 
-    def build_model(self):
-        """ Build the LSTM Model
-
-        Returns:
-            None: None
-        """
+    def build_model(self, lstm_units=100, dense_units1=100, dense_units2=50, optimizer='adam'):
+        """ Build the LSTM Model """
         model = Sequential()
         model.add(Input(shape=self.input_shape))
-        model.add(LSTM(self.lstm_units, return_sequences=True))
-        model.add(LSTM(self.lstm_units))
-        for units in self.dense_units:
-            model.add(Dense(units, activation='relu'))
+        model.add(LSTM(lstm_units, return_sequences=True))
+        model.add(LSTM(lstm_units))
+        model.add(Dense(dense_units1, activation='relu'))
+        model.add(Dense(dense_units2, activation='relu'))
         model.add(Dense(1)) # One output unit
-        model.compile(optimizer=self.optimizer, loss=self.loss)
+        model.compile(optimizer=optimizer, loss=self.loss, metrics=['mse'])
         return model
 
     def summary(self):
@@ -102,54 +100,89 @@ class Lstm():
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
         plt.legend()
-        plt.savefig("model_performance.png", dpi=300)
+        plt.savefig("../results/model_performance.png", dpi=300)
         plt.show()
 
-    def hyperparameter_tuning(self, X, y, param_grid:dict, cv_splits=5):
-        """ Use Grid Search and Time Series Cross Validation for Hyperparameter tuning. 
+    def hyperparameter_tuning(self, X, y, param_grid, epochs=10, n_splits=5, csv_path='grid_search_results.csv'):
+        """ Grid Search to find best Hyperparameters with Time Series Cross-Validation
 
         Args:
-            X (Numpy 2D Array): _description_
-            y (Numpy Array): _description_
-            param_grid (Dictionary): _description_
-            cv_splits (int, optional): _description_. Defaults to 5.
+            X (Array-like): Features
+            y (Array-like): Target Variable
+            param_grid (Dictionary): Grid of Hyperparameters
+            epochs (int, optional): Number of Epochs. Defaults to 10.
+            n_splits (int, optional): Number of splits for time series cross-validation. Defaults to 5.
+            csv_path (str, optional): Path to save the CSV file. Defaults to 'grid_search_results.csv'.
+
+        Returns:
+            best_params (dict): Best Parameters for the Neural Network Model
+            best_history (History): Training history of the best model
         """
-        def build_keras_model(lstm_units=100,
-                              dense_units1=100,
-                              dense_units2=50,
-                              optimizer='adam'):
-            """ Build Keras Model for Time Series Cross Validation
+        # Initialize TimeSeriesSplit
+        tscv = TimeSeriesSplit(n_splits=n_splits)
 
-            Args:
-                lstm_units (int, optional): Units for LSTM Layer. Defaults to 100.
-                dense_units1 (int, optional): Units for First Dense Layer. Defaults to 100.
-                dense_units2 (int, optional): Units for Second Dense Layer. Defaults to 50.
-                optimizer (str, optional): Adam Optimizer. Defaults to 'adam'.
+        # DataFrame to store the parameters and their average validation MSE
+        results = []
 
-            Returns:
-                Model: LSTM Model
-            """
-            model = Sequential()
-            model.add(Input(shape=self.input_shape)) # Input Layer
-            model.add(LSTM(lstm_units)) # LSTM Cell
-            model.add(Dense(dense_units1, activation='relu')) # Hidden Layer
-            model.add(Dense(dense_units2, activation='relu')) # Hidden Layer
-            model.add(Dense(1)) # Output Layer
-            model.compile(optimizer=optimizer, loss='mean_squared_error')
-            return model
+        best_score = float('inf')
+        best_params = None
 
-        model = KerasRegressor(build_fn=build_keras_model,
-                               epochs=self.epochs,
-                               batch_size=self.batch_size,
-                               verbose=False)
-        tscv = TimeSeriesSplit(n_splits=cv_splits)
-        grid = GridSearchCV(estimator=model,
-                            param_grid=param_grid,
-                            cv=tscv,
-                            scoring='neg_mean_squared_error')
-        grid_result = grid.fit(X, y)
+        for lstm_units in param_grid['lstm_units']:
+            for dense_units1 in param_grid['dense_units1']:
+                for dense_units2 in param_grid['dense_units2']:
+                    for optimizer_name in param_grid['optimizer']:
 
-        best_config = grid_result.best_params_
-        print(f"Best Performance got a score of {grid_result.best_score_}")
-        print(f"Best Parameters were: {best_config}")
-        return best_config
+                        current_params = {
+                            'lstm_units': lstm_units,
+                            'dense_units1': dense_units1,
+                            'dense_units2': dense_units2,
+                            'optimizer': optimizer_name
+                        }
+
+                        print(f"Current Parameters: {current_params}")
+
+                        val_scores = []
+
+                        for train_index, val_index in tscv.split(X):
+                            X_train, X_val = X[train_index], X[val_index]
+                            y_train, y_val = y[train_index], y[val_index]
+
+                            # Debug: Print shapes of the splits
+                            print(f"Train shapes: X_train: {X_train.shape}, y_train: {y_train.shape}")
+                            print(f"Val shapes: X_val: {X_val.shape}, y_val: {y_val.shape}")
+
+                            # Check if training or validation sets are empty
+                            if X_train.size == 0 or X_val.size == 0 or y_train.size == 0 or y_val.size == 0:
+                                print("Skipping due to empty training or validation set")
+                                continue
+
+                            # Build and compile model with current parameters
+                            self.model = self.build_model(lstm_units, dense_units1, dense_units2, optimizer_name)
+                            history = self.model.fit(X_train, y_train, epochs=epochs, batch_size=self.batch_size, validation_data=(X_val, y_val), verbose=0)
+                            val_mse = history.history['val_mse'][-1]
+                            val_scores.append(val_mse)
+
+                        avg_val_mse = np.mean(val_scores)
+
+                        # Add the parameters and their average validation MSE to the results list
+                        results.append({
+                            'lstm_units': lstm_units,
+                            'dense_units1': dense_units1,
+                            'dense_units2': dense_units2,
+                            'optimizer': optimizer_name,
+                            'avg_val_mse': avg_val_mse
+                        })
+
+                        if avg_val_mse < best_score:
+                            best_score = avg_val_mse
+                            best_params = current_params
+
+                        print(f"Params: {current_params}, Average Validation MSE: {avg_val_mse:.4f}")
+
+                        # Export results to a CSV file
+                        results_df = pd.DataFrame(results)
+                        results_df.to_csv(f"../results/{csv_path}", index=False)
+                        print(f"Results saved to {csv_path}")
+
+        print(f"Best Params: {best_params}, Best Validation MSE: {best_score:.4f}")
+        return best_params
