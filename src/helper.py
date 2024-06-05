@@ -142,7 +142,13 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
         exists, csv_path = check_existing_results(ticker, results_folder)
         if exists:
             print(f"Hyperparameter Tuning Results already exist for {ticker}. Loading existing results.")
-            best_config = pd.read_csv(csv_path).iloc[0].to_dict()
+            df_to_filter = pd.read_csv("../results/best_configs.csv")
+            try:
+                correct_row = df_to_filter[df_to_filter['ticker'] == ticker]
+                best_config = correct_row.iloc[0].to_dict()
+            except IndexError:
+                print(f"Best Configuration for {ticker} not found in best_configuration.csv")
+                continue
         else:
             print(f"Running hyperparameter tuning for {ticker}.")
             best_config = run_hyperparameter_tuning(X_train, y_train, param_grid, csv_path)
@@ -173,3 +179,22 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
     best_configs_df.to_csv(os.path.join(results_folder, 'best_configs.csv'), index=False)
     print("Best configurations for all stocks saved.")
     return all_models
+
+def get_best_configuration(tickers:list) -> dict:
+    """ Go through all hyperparamater tuning files and find best 
+        configuration for each Ticker
+
+    Args:
+        tickers (list): Tickers
+
+    Returns:
+        dict: Dictionary of Best Configuration for each ticker
+    """
+    best_configurations = {}
+    for ticker in tickers:
+        hyperparameter_file = f"../results/{ticker}_hyperparameter_tuning_results.csv"
+        df = pd.read_csv(hyperparameter_file)
+        min_mse_row = df.loc[df['avg_val_mse'].idxmin()]
+        best_config = min_mse_row.to_dict()
+        best_configurations[ticker] = best_config
+    return best_configurations
