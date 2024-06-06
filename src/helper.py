@@ -198,3 +198,18 @@ def get_best_configuration(tickers:list) -> dict:
         best_config = min_mse_row.to_dict()
         best_configurations[ticker] = best_config
     return best_configurations
+
+def final_df_cleaning(df: pd.DataFrame) -> pd.DataFrame:
+    """ Cleaning the Final Dataframe of the Dataset
+
+    Args:
+        df (pd.DataFrame): Dataframe of Features and Target Returns
+
+    Returns:
+        pd.DataFrame: Cleaned DataFrame sorted by ticker and datadate (Panel Data)
+    """
+    df = df.iloc[:, 3:] # Drop the First Three Columns (unnamed, gvkey, iid)
+    df = df.sort_values(by=['tic', 'datadate']) # Sort by Ticker and then Date
+    df.drop(columns=['conm', 'gsector'], inplace=True) # Drop Company Name and GICS Sector
+    df.reset_index(inplace=True) # Reset the Index
+    return df
