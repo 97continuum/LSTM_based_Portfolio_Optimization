@@ -213,3 +213,21 @@ def final_df_cleaning(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=['conm', 'gsector'], inplace=True) # Drop Company Name and GICS Sector
     df.reset_index(inplace=True) # Reset the Index
     return df
+
+def create_return_arrays(tickers:list, folder='../results') -> np.array:
+    """ Function to to take a list of tickers, go to each ticker's predicted returns file
+
+
+    Args:
+        tickers (list): Tickers 
+        folder (str, optional): The folder containing the predicted results for each ticker. 
+        Defaults to '../results'.
+
+    Returns:
+        np.array: _description_
+    """
+    columns = []
+    for ticker in tickers:
+        df = pd.read_csv(f"{folder}/{ticker}_predicted_results.csv")
+        columns.append(df['predicted'].values)
+    return np.array(columns)
