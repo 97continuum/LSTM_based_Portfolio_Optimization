@@ -46,7 +46,10 @@ def prepare_data(df:pd.DataFrame, sequence_length:int = 12) -> tuple:
         y_target.append(y[i + sequence_length])
     X_features = np.array(X_features)
     y_target = np.array(y_target)
-    return X_features, y_target
+    train_size = int(len(X) * 0.8)
+    X_train, y_train = X_features[:train_size], y_target[:train_size]
+    X_test, y_test = X_features[train_size:], y_target[train_size:]
+    return X_train, y_train, X_test, y_test
 
 def check_existing_results(ticker, folder='../results'):
     """ Check if the HyperParameter Tuning Results CSV File exists for current Ticker
@@ -134,10 +137,10 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
     for ticker in stock_list:
         print(f"Processing stock: {ticker}")
         df = df_per_stock[ticker].iloc[:, 1:]
-        X, y = prepare_data(df)
-        train_size = int(len(X) * 0.8)
-        X_train, y_train = X[:train_size], y[:train_size]
-        X_test, y_test = X[train_size:], y[train_size:]
+        X_train, y_train, X_test, y_test = prepare_data(df)
+        #train_size = int(len(X) * 0.8)
+        #X_train, y_train = X[:train_size], y[:train_size]
+        #X_test, y_test = X[train_size:], y[train_size:]
 
         exists, csv_path = check_existing_results(ticker, results_folder)
         if exists:
