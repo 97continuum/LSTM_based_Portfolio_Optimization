@@ -257,4 +257,4 @@ def create_return_arrays(tickers:list, folder='../results') -> np.array:
     for ticker in tickers:
         df = pd.read_csv(f"{folder}/{ticker}_predicted_results.csv")
         columns.append(df['predicted'].values)
-    return np.array(columns)
+    return np.array(columns).T
