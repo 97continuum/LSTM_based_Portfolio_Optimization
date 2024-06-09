@@ -1,11 +1,12 @@
 """ Helper Script to hold functions to run main file
 """
 
+import os
 import numpy as np
 import pandas as pd
-import os
-from lstm_class import Lstm
 from sklearn.metrics import mean_squared_error
+from sklearn.covariance import LedoitWolf
+from lstm_class import Lstm
 
 
 def create_df_per_stock(tickers:list, dataframe:pd.DataFrame) -> dict:
@@ -63,6 +64,19 @@ def check_existing_results(ticker, folder='../results'):
     """
     filename = os.path.join(folder, f"{ticker}_hyperparameter_tuning_results.csv")
     return os.path.exists(filename), filename
+
+def check_return_predictions(ticker:str, folder="../results") -> bool:
+    """ Check if Return Predictions Files Exist
+
+    Args:
+        ticker (str): Ticker
+        folder (str, optional): Folder Containing Predicted Results. Defaults to "../results".
+
+    Returns:
+        bool: True if File exists, else False
+    """
+    file_exists = os.path.exists(f"{folder}/{ticker}_predicted_results.csv")
+    return file_exists
 
 def run_hyperparameter_tuning(X_train:np.array,
                               y_train:np.array,
@@ -157,7 +171,7 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
                                                   'batch_size',
                                                   'optimizer',
                                                   'avg_val_mse']
-                best_configurations_df
+                # best_configurations_df
                 best_configurations_df.to_csv("../results/best_configs.csv")
                 df_to_filter = pd.read_csv("../results/best_configs.csv")
 
@@ -197,13 +211,6 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
     best_configs_df.to_csv(os.path.join(results_folder, 'best_configs.csv'), index=False)
     print("Best configurations for all stocks saved.")
     return all_models
-
-def check_return_predictions(ticker:str, folder="../results") -> bool:
-    return_file = f"{folder}/{ticker}_predicted_results.csv"
-    if os.path.exists(return_file):
-        return True
-    else:
-        return False
 
 def get_best_configuration(tickers:list) -> dict:
     """ Go through all hyperparamater tuning files and find best 
@@ -258,3 +265,51 @@ def create_return_arrays(tickers:list, folder='../results') -> np.array:
         df = pd.read_csv(f"{folder}/{ticker}_predicted_results.csv")
         columns.append(df['predicted'].values)
     return np.array(columns).T
+
+def create_returns_for_cov(df_per_stock: dict, return_array: np.array) -> list:
+    """ This Function vertically stacks all the Returns of the Previous Months + 
+       Predicted Return for Next Month
+
+       Each Out of Sample Day is stored in a list - Each Day's Return Matrix is accessible
+       via the position in the list
+
+    Args:
+        df_per_stock (dict): _description_
+        return_array (np.array): _description_
+
+    Returns:
+        list: _description_
+    """
+    return_matrix_list = [] # A list to store a separate return matrix for each day 
+    last_index = return_array.shape[0] # Total Number of Out Of Sample Return Predictions
+    for i in range(last_index):
+        returns_data = [] # Append returns of stocks here
+        for ticker in df_per_stock.keys():
+            returns_data.append(df_per_stock[ticker]['trt1m'][:-last_index + i].values)
+        returns_data = np.array(returns_data).T
+        prediction_return = return_array[i] # Row of Predictions
+        combined_data = np.vstack([returns_data, prediction_return]) # Stack Returns + Prediction Vertically
+        return_matrix_list.append(combined_data)
+    return return_matrix_list
+
+# Covariance Matrix
+def calculate_covariance_matrix(list_of_return_matrix):
+    """ Create Covariance Matrix for each out of sample month and return them all in a list
+
+    Args:
+        list_of_return_matrix (list): List of Return Matrices
+
+    Returns:
+        list: List of Covariance Matrices
+    """
+    list_of_cov_matrix = []
+    list_of_shrinkage = []
+    for i, return_matrix in enumerate(list_of_return_matrix):
+        lw = LedoitWolf()
+        lw.fit(return_matrix)
+        covariance_matrix = lw.covariance_
+        shrinkage = lw.shrinkage_
+        list_of_cov_matrix.append(covariance_matrix)
+        list_of_shrinkage.append(shrinkage)
+        #print(f"Shrinkage constant: {shrinkage} for month {i + 1}")
+    return list_of_cov_matrix, list_of_shrinkage
