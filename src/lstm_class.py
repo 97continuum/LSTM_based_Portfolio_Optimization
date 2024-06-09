@@ -72,33 +72,33 @@ class Lstm():
         model = self.build_model()
         return model.summary()
 
-def fit(self, X_train, y_train, X_val=None, y_val=None, dropout_rate=0.2, regularization_value=0.01):
-    """ Fit the Model
+    def fit(self, X_train, y_train, X_val=None, y_val=None, dropout_rate=0.2, regularization_value=0.01):
+        """ Fit the Model
 
-    Args:
-        X_train (Numpy Array): Training Features
-        y_train (Numpy Array): Training Target
-        X_val (Numpy Array, optional): Validation Features. Defaults to None.
-        y_val (Numpy Array, optional): Validation Target. Defaults to None.
-        dropout_rate (float, optional): Dropout rate for dropout layers. Defaults to 0.2. 
-        regularization_value (float, optional): Regularization value for L2 regularization. Defaults to 0.01.
-    """
-    self.dropout_rate = dropout_rate  
-    self.regularization_value = regularization_value 
-    self.model = self.build_model()
-    if X_val is not None and y_val is not None:
-        self.history = self.model.fit(X_train,
-                                      y_train,
-                                      epochs=self.epochs,
-                                      batch_size=self.batch_size,
-                                      validation_data=(X_val, y_val)
-                                      )
-    else:
-        self.history = self.model.fit(X_train,
-                                      y_train,
-                                      epochs=self.epochs,
-                                      batch_size=self.batch_size
-                                      )
+        Args:
+            X_train (Numpy Array): Training Features
+            y_train (Numpy Array): Training Target
+            X_val (Numpy Array, optional): Validation Features. Defaults to None.
+            y_val (Numpy Array, optional): Validation Target. Defaults to None.
+            dropout_rate (float, optional): Dropout rate for dropout layers. Defaults to 0.2. 
+            regularization_value (float, optional): Regularization value for L2 regularization. Defaults to 0.01.
+        """
+        self.dropout_rate = dropout_rate  
+        self.regularization_value = regularization_value 
+        self.model = self.build_model()
+        if X_val is not None and y_val is not None:
+            self.history = self.model.fit(X_train,
+                                        y_train,
+                                        epochs=self.epochs,
+                                        batch_size=self.batch_size,
+                                        validation_data=(X_val, y_val)
+                                        )
+        else:
+            self.history = self.model.fit(X_train,
+                                        y_train,
+                                        epochs=self.epochs,
+                                        batch_size=self.batch_size
+                                        )
 
     def hyperparameter_tuning(self, X, y, param_grid, epochs=10, n_splits=5, csv_path='grid_search_results.csv'):
         """ Grid Search to find best Hyperparameters with Time Series Cross-Validation
@@ -129,7 +129,7 @@ def fit(self, X_train, y_train, X_val=None, y_val=None, dropout_rate=0.2, regula
                 for dense_units1 in param_grid['dense_units1']:
                     for dense_units2 in param_grid['dense_units2']:
                         for optimizer_name in param_grid['optimizer']:
-                            for dropout_rate in param_grid['dropout']:
+                            for dropout_rate in param_grid['dropout_rate']:
                                 for regularization_value in param_grid['regularization_value']:
 
                                     current_params = {

@@ -170,6 +170,8 @@ def run_for_stocks(stock_list, df_per_stock, param_grid, results_folder='../resu
                                                   'dense_units2',
                                                   'batch_size',
                                                   'optimizer',
+                                                  'dropout_rate',
+                                                  'regularization_value'
                                                   'avg_val_mse']
                 # best_configurations_df
                 best_configurations_df.to_csv("../results/best_configs.csv")
@@ -292,7 +294,6 @@ def create_returns_for_cov(df_per_stock: dict, return_array: np.array) -> list:
         return_matrix_list.append(combined_data)
     return return_matrix_list
 
-# Covariance Matrix
 def calculate_covariance_matrix(list_of_return_matrix):
     """ Create Covariance Matrix for each out of sample month and return them all in a list
 
