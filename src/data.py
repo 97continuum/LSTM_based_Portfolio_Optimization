@@ -97,14 +97,8 @@ def calculate_technical_indicators(df):
     df['MA_12'] = df['prccm'].rolling(window=12).mean()
     return df
 
-def merge_macro_data(stock_use, macro):
-    macro['yymm'] = pd.to_datetime(macro['caldt']).dt.to_period('M')
-    stock_use = stock_use.merge(macro, on='yymm', how='left')
-    stock_use.drop(columns=['caldt','yymm'], inplace=True)
-    return stock_use
-
 def normalize_data(stock_use):
     stock_n = stock_use.copy()
     normalizer = MinMaxScaler()
-    stock_n.iloc[:, 6:79] = normalizer.fit_transform(stock_n.iloc[:, 6:79])
+    stock_n.iloc[:, 6:69] = normalizer.fit_transform(stock_n.iloc[:, 6:69])
     return stock_n
