@@ -1,0 +1,2 @@
+ticker,Unnamed: 0,lstm_units,dense_units1,dense_units2,batch_size,optimizer,avg_val_mse
+AMZN,0,100,150,75,32,adam,0.0027902224101126

@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from sklearn.covariance import LedoitWolf
 from lstm_class import Lstm
@@ -314,3 +315,120 @@ def calculate_covariance_matrix(list_of_return_matrix):
         list_of_shrinkage.append(shrinkage)
         #print(f"Shrinkage constant: {shrinkage} for month {i + 1}")
     return list_of_cov_matrix, list_of_shrinkage
+
+def plot_prediction_actual(ticker:str, folder='/default_lstm_no_burning_window_12m', figsize=(16,6)):
+    """ Plot the Predicted vs Actual Result
+
+    Args:
+        ticker (str): _description_
+        folder (str, optional): _description_. Defaults to '/default_lstm_no_burning_window_12m'.
+    """
+    main_folder = '../past_results/without_macro_data'
+    data = pd.read_csv(f"{main_folder}{folder}/{ticker}_predicted_results.csv")
+    print(f"{ticker}'s Predicted and Actual Results")
+    plt.figure(figsize=figsize)
+    plt.plot(data['actual'], label=f'{ticker} Actual Normalized Returns')
+    plt.plot(data['predicted'], label=f'{ticker} Predicted Normalized Returns')
+    plt.xlabel("Months")
+    plt.ylabel("Normalized Returns")
+    plt.legend()
+    plt.title(f"{ticker} Actual vs Predicted Normalized Returns")
+    plt.show()
+
+def plot_mse(tickers:list,main_folder='../past_results/without_macro_data',data_folder='/default_lstm_no_burning_window_12m'):
+    """ Plot MSE for all Tickers
+
+    Args:
+        tickers (list): Tickers
+        main_folder (str, optional): Main Directory. Defaults to '../past_results/without_macro_data'.
+        data_folder (str, optional): Folder containg results. Defaults to '/default_lstm_no_burning_window_12m'.
+    """
+    mses = {}  # ticker: mse
+    for ticker in tickers:
+        data = pd.read_csv(f"{main_folder}{data_folder}/{ticker}_predicted_results.csv")
+        mses[ticker] = data['mse'][0] # Last MSE
+    keys = list(mses.keys())
+    values = list(mses.values())
+    # Create a scatter plot
+    plt.figure(figsize=(16, 6))
+    plt.scatter(keys, values, color='blue')
+    plt.title('Scatter Plot of Mean Square Errors for all Tickers for a 12 Month Sequence')
+    plt.xticks(rotation=90)
+    plt.xlabel('Tickers')
+    plt.ylabel('MSE')
+        # Add vertical lines
+    for key, value in mses.items():
+        plt.vlines(x=key, ymin=0, ymax=value, colors='gray', linestyles='dotted')
+    plt.show()
+    
+
+def calculate_permutation_importance(model, X, y, metric=mean_squared_error, n_repeats=10):
+    """
+    Calculate permutation feature importance for an LSTM model.
+    
+    Parameters:
+    model: LSTM model (must have a predict method)
+    X: numpy array or pandas DataFrame, input features
+    y: numpy array or pandas Series, target values
+    metric: function, metric to evaluate model performance (default: mean_squared_error)
+    n_repeats: int, number of times to shuffle each feature (default: 10)
+    
+    Returns:
+    feature_importance: numpy array, importance score for each feature
+    """
+        # Ensure X and y are NumPy arrays with the correct dtype
+    X = np.array(X, dtype=np.float32)
+    y = np.array(y, dtype=np.float32)
+    
+    baseline_performance = metric(y, model.model.predict(X).flatten())
+    feature_importance = np.zeros(X.shape[1])
+
+    for i in range(X.shape[1]):
+        performance_decrease = []
+        for _ in range(n_repeats):
+            X_permuted = X.copy()
+            np.random.shuffle(X_permuted[:, i])
+            permuted_performance = metric(y, model.model.predict(X_permuted))
+            performance_decrease.append(permuted_performance - baseline_performance)
+        feature_importance[i] = np.mean(performance_decrease)
+    
+    return feature_importance
+
+def plot_feature_importance(feature_importance, feature_names):
+    """
+    Plot feature importance.
+    
+    Parameters:
+    feature_importance: numpy array, importance score for each feature
+    feature_names: list, names of the features
+    """
+    plt.figure(figsize=(16, 6))
+    indices = np.argsort(feature_importance)[::-1]
+    plt.bar(range(len(feature_importance)), feature_importance[indices], align='center')
+    plt.xticks(range(len(feature_importance)), [feature_names[i] for i in indices], rotation=90)
+    plt.title('Feature Importance for AMZN in the 12 Month No Burning Window Sequence')
+    plt.xlabel('Features')
+    plt.ylabel('Importance')
+    plt.show()
+
+def prepare_data_for_feature_importance(df:pd.DataFrame, sequence_length:int = 12) -> tuple:
+    """ Split DataFrame into X Features and y target returns
+
+    Args:
+        df (pd.DataFrame): DataFrame for the Stock with Features and Target
+        sequence_length (int, optional): Number of Months for Time Sequence. Defaults to 12.
+
+    Returns:
+        tuple: X and y numpy arrays representing the Features and Target Returns respectively
+    """
+    y = df['trt1m'].values
+    df.drop(columns=['trt1m'], inplace=True)
+    X = df.iloc[:, 2:].values
+    feature_names = df.iloc[:, 2:].columns.tolist()
+    X_features, y_target = [], []
+    for i in range(X.shape[0] - sequence_length):
+        X_features.append(X[i:i+sequence_length])
+        y_target.append(y[i + sequence_length])
+    X_features = np.array(X_features)
+    y_target = np.array(y_target)
+    return X_features, y_target, feature_names
